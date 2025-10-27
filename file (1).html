@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AdGleam — Jewellery Ad Creator (Single File)</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#0b1220; --muted:#9aa4b2;
+    --accent:#f59e0b; --glass: rgba(255,255,255,0.04);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  html,body{height:100%; margin:0; background:linear-gradient(180deg,#061022 0%, #071428 100%); color:#e6eef6;}
+  .app {
+    max-width:1100px; margin:28px auto; padding:20px; border-radius:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    box-shadow: 0 8px 30px rgba(2,6,23,0.7);
+    display:grid; grid-template-columns: 420px 1fr; gap:20px;
+  }
+
+  /* Left sidebar controls */
+  .panel { background:var(--panel); padding:14px; border-radius:10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);}
+  .logo { font-weight:700; letter-spacing:0.6px; display:flex; gap:10px; align-items:center; margin-bottom:12px;}
+  .logo .dot { width:10px; height:10px; background:var(--accent); border-radius:50%; box-shadow:0 0 12px rgba(245,158,11,0.25)}
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 6px; }
+  input[type="file"]{ display:block; }
+  .row { display:flex; gap:8px; align-items:center; }
+  button, .btn { background:linear-gradient(90deg,#0ea5a6,#06b6d4); color:#021018; border:none; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
+  button.ghost { background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); font-weight:600 }
+  select, input[type="text"], textarea { width:100%; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:var(--glass); color:inherit; }
+  small { color:var(--muted); }
+
+  /* Preview area */
+  .preview-wrap { padding:18px; display:flex; flex-direction:column; gap:12px; }
+  .canvas-card { background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02)); border-radius:12px; padding:14px; display:flex; gap:12px; align-items:center; justify-content:center; min-height:420px; border:1px solid rgba(255,255,255,0.02); }
+  canvas { border-radius:8px; width:100%; height:auto; max-width:760px; background:transparent; display:block; }
+
+  /* small controls below preview */
+  .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .chip { padding:8px 10px; border-radius:999px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:13px; border:1px solid rgba(255,255,255,0.02);}
+  footer { margin-top:12px; color:var(--muted); font-size:13px; }
+
+  .flex { display:flex; gap:8px; align-items:center;}
+  .spacer { flex:1; }
+  .small { font-size:13px; color:var(--muted); }
+  .theme-preview { display:flex; gap:6px; align-items:center; margin-top:8px; }
+  .color-swatch { width:28px; height:28px; border-radius:6px; box-shadow:0 4px 12px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.03); cursor:pointer;}
+  .download { text-decoration:none; display:inline-block; padding:10px 12px; border-radius:8px; background:linear-gradient(90deg,#ef4444,#f97316); color:#021018; font-weight:700; }
+
+  /* responsive */
+  @media (max-width: 980px){ .app { grid-template-columns: 1fr; padding:12px;} .canvas-card{ min-height:360px;} }
+</style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="AdGleam Jewellery Ad Creator">
+    <!-- LEFT: Controls -->
+    <div class="panel" aria-hidden="false">
+      <div class="logo"><span class="dot"></span> <div>AdGleam <small style="color:var(--muted); margin-left:6px; font-weight:600">— Upload to Ad</small></div></div>
+
+      <label for="fileInput">1) Upload jewellery image</label>
+      <input id="fileInput" type="file" accept="image/*" />
+
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button id="btnAutoRemove" class="btn">Auto Remove BG</button>
+        <button id="btnResetBg" class="ghost">Reset</button>
+      </div>
+      <small>Auto-removal uses a simple corner-sampling algorithm — works best on product shots with plain backgrounds.</small>
+
+      <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.02)">
+
+      <label>2) Choose style</label>
+      <div class="row" style="gap:6px;">
+        <select id="styleSelect" aria-label="Select ad style">
+          <option value="plain">Plain Minimal</option>
+          <option value="bridal">Bridal</option>
+          <option value="festive">Festive</option>
+          <option value="luxury">Luxury</option>
+        </select>
+        <select id="sizeSelect" aria-label="Select output size">
+          <option value="1080x1080">Instagram 1080×1080</option>
+          <option value="1080x1920">Story 1080×1920</option>
+          <option value="1200x628">Facebook Ad 1200×628</option>
+        </select>
+      </div>
+
+      <label>3) Store details (auto placed)</label>
+      <input id="storeInput" type="text" placeholder="Store name (e.g., Ananya Jewels)" />
+      <input id="taglineInput" type="text" placeholder="Tagline (auto generated)" style="margin-top:8px" />
+      <textarea id="descInput" rows="3" placeholder="Short description / CTA" style="margin-top:8px"></textarea>
+
+      <label style="margin-top:10px">4) Hashtags / Caption</label>
+      <textarea id="hashInput" rows="2" placeholder="#jewellery #gold" ></textarea>
+
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button id="btnGenerate" class="btn">Generate Ad</button>
+        <a id="downloadLink" class="download" download="jewellery-ad.png" style="display:none">Download PNG</a>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <small class="small">Theme color</small>
+          <div class="theme-preview">
+            <div class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></div>
+            <div class="color-swatch" data-color="#ef4444" style="background:#ef4444"></div>
+            <div class="color-swatch" data-color="#06b6d4" style="background:#06b6d4"></div>
+            <div class="color-swatch" data-color="#a78bfa" style="background:#a78bfa"></div>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <div style="margin-top:12px"><strong>Tip:</strong> Use plain product images for best auto-bg removal. For photos with models, use plain or neutral backgrounds.</div>
+      </footer>
+    </div>
+
+    <!-- RIGHT: Preview -->
+    <div class="preview-wrap">
+      <div style="display:flex; align-items:center; justify-content:space-between">
+        <div><strong style="font-size:18px">Preview</strong> <small class="small" id="sizeLabel">• 1080×1080</small></div>
+        <div class="flex">
+          <button id="btnZoomIn" class="chip">Zoom +</button>
+          <button id="btnZoomOut" class="chip">Zoom -</button>
+          <button id="btnRotate" class="chip">Rotate</button>
+        </div>
+      </div>
+
+      <div class="canvas-card">
+        <canvas id="adCanvas" width="1080" height="1080" aria-label="Preview canvas"></canvas>
+      </div>
+
+      <div class="controls">
+        <div class="chip" id="btnToggleGuides">Show Guides</div>
+        <div class="chip" id="btnTextToggle">Toggle Store Text</div>
+        <div class="chip" id="btnSharePreview" title="Copy image to clipboard">Copy Image</div>
+        <div class="spacer"></div>
+        <div class="small">Generated tagline, fonts, and layout are editable before download</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  AdGleam single-file prototype
+  - Upload image
+  - Simple auto background removal (corner sampling)
+  - Choose style, auto generate tagline + hashtags
+  - Preview canvas with controls
+  - Export PNG
+  --------
+  Save as adgleam.html and open locally.
+*/
+
+(() => {
+  // DOM
+  const fileInput = document.getElementById('fileInput');
+  const btnAutoRemove = document.getElementById('btnAutoRemove');
+  const btnResetBg = document.getElementById('btnResetBg');
+  const styleSelect = document.getElementById('styleSelect');
+  const sizeSelect = document.getElementById('sizeSelect');
+  const storeInput = document.getElementById('storeInput');
+  const taglineInput = document.getElementById('taglineInput');
+  const descInput = document.getElementById('descInput');
+  const hashInput = document.getElementById('hashInput');
+  const btnGenerate = document.getElementById('btnGenerate');
+  const downloadLink = document.getElementById('downloadLink');
+  const canvas = document.getElementById('adCanvas');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  const colorSwatches = document.querySelectorAll('.color-swatch');
+  const sizeLabel = document.getElementById('sizeLabel');
+  const btnZoomIn = document.getElementById('btnZoomIn');
+  const btnZoomOut = document.getElementById('btnZoomOut');
+  const btnRotate = document.getElementById('btnRotate');
+  const btnToggleGuides = document.getElementById('btnToggleGuides');
+  const btnTextToggle = document.getElementById('btnTextToggle');
+  const btnSharePreview = document.getElementById('btnSharePreview');
+
+  // State
+  let img = null;            // HTMLImageElement original
+  let imgBitmap = null;      // ImageBitmap or Image instance for drawing
+  let maskCanvas = null;     // stores alpha mask for bg removal
+  let themeColor = '#f59e0b';
+  let showGuides = false;
+  let showText = true;
+  let scale = 1;
+  let rotation = 0; // degrees
+  let adSize = { w:1080, h:1080 };
+  let bgMode = 'plain'; // plain|bridal|festive|luxury
+
+  const AD_SIZES = {
+    "1080x1080": { w:1080, h:1080 },
+    "1080x1920": { w:1080, h:1920 },
+    "1200x628": { w:1200, h:628 }
+  };
+
+  // Utility: load image file to HTMLImageElement (returns Promise)
+  function loadImageFromFile(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+      image.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      image.crossOrigin = "anonymous";
+      image.src = url;
+    });
+  }
+
+  // Utility: fit contain math: returns width/height and scaled values
+  function fitContain(imgW, imgH, boxW, boxH){
+    const iw = imgW, ih = imgH;
+    const br = Math.min(boxW/iw, boxH/ih);
+    return { w: Math.round(iw*br), h: Math.round(ih*br), scale: br };
+  }
+
+  // Draw ad to canvas (main renderer)
+  function renderAd() {
+    canvas.width = adSize.w;
+    canvas.height = adSize.h;
+    // clear
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // background by style
+    if (bgMode === 'plain') {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      // subtle gradient
+      const g = ctx.createLinearGradient(0,0, canvas.width, canvas.height);
+      g.addColorStop(0, '#fff');
+      g.addColorStop(1, '#fff5eb');
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.globalAlpha = 1;
+    } else if (bgMode === 'bridal') {
+      // soft cream with golden glow
+      const g = ctx.createLinearGradient(0,0, 0, canvas.height);
+      g.addColorStop(0, '#fff6ee');
+      g.addColorStop(1, '#fff0e6');
+      ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+      // radial glow
+      ctx.globalAlpha = 0.08;
+      ctx.beginPath();
+      ctx.fillStyle = themeColor;
+      ctx.ellipse(canvas.width*0.85, canvas.height*0.15, canvas.width*0.45, canvas.height*0.6, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (bgMode === 'festive') {
+      const g = ctx.createLinearGradient(0,0, canvas.width, canvas.height);
+      g.addColorStop(0, '#fff7f3'); g.addColorStop(1, '#fff3f0');
+      ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+      // decorative confetti bars
+      ctx.globalAlpha = 0.06;
+      for (let i=0;i<25;i++){
+        ctx.fillStyle = themeColor;
+        const x = (i * 73) % canvas.width;
+        ctx.fillRect(x, 0, 18, canvas.height);
+      }
+      ctx.globalAlpha = 1;
+    } else if (bgMode === 'luxury') {
+      // dark luxe background
+      const g = ctx.createLinearGradient(0,0,0,canvas.height);
+      g.addColorStop(0, '#0b1220'); g.addColorStop(1, '#0b0912');
+      ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+      // soft stripe
+      ctx.globalAlpha = 0.06;
+      ctx.fillStyle = '#fff';
+      for (let i=0;i<6;i++){
+        ctx.fillRect(canvas.width*(i/6), canvas.height*0.65, canvas.width*0.12, canvas.height*0.35);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // If no image yet, show placeholder
+    if (!imgBitmap) {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(canvas.width*0.05, canvas.height*0.18, canvas.width*0.9, canvas.height*0.6);
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.round(canvas.width*0.04)}px sans-serif`;
+      ctx.fillText('Upload jewellery image to generate ad', canvas.width*0.06, canvas.height*0.42);
+      return;
+    }
+
+    // draw product image centered with current transform and mask (if any)
+    ctx.save();
+    // compute box
+    const box = fitContain(imgBitmap.width, imgBitmap.height, canvas.width*0.78, canvas.height*0.62);
+    const cx = canvas.width/2;
+    const cy = canvas.height*0.44;
+
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation * Math.PI / 180);
+    ctx.scale(scale, scale);
+
+    // If maskCanvas exists (bg removed), use compositing to draw masked image
+    if (maskCanvas) {
+      // draw image onto temp canvas, then apply mask alpha
+      const tmp = document.createElement('canvas');
+      tmp.width = box.w; tmp.height = box.h;
+      const tctx = tmp.getContext('2d');
+      // draw image fit into tmp
+      tctx.drawImage(imgBitmap, 0, 0, imgBitmap.width, imgBitmap.height, 0, 0, box.w, box.h);
+
+      // get image data and mask data
+      const imgData = tctx.getImageData(0,0,box.w,box.h);
+      // maskCanvas is same size as img original scaled to box; we must draw scaled mask onto tmp2
+      const maskScaled = document.createElement('canvas');
+      maskScaled.width = box.w; maskScaled.height = box.h;
+      const mctx = maskScaled.getContext('2d');
+      mctx.drawImage(maskCanvas, 0, 0, maskCanvas.width, maskCanvas.height, 0, 0, box.w, box.h);
+      const maskData = mctx.getImageData(0,0,box.w,box.h).data;
+
+      // apply mask alpha
+      for (let i=0;i<imgData.data.length;i+=4){
+        const alpha = maskData[i+3] / 255; // mask alpha
+        imgData.data[i+3] = Math.round(imgData.data[i+3] * alpha);
+      }
+      tctx.putImageData(imgData, 0, 0);
+
+      // finally draw tmp onto main canvas centered (tmp is box.w x box.h)
+      ctx.drawImage(tmp, -box.w/2, -box.h/2, box.w, box.h);
+    } else {
+      // simply draw image, no mask
+      ctx.drawImage(imgBitmap, 0, 0, imgBitmap.width, imgBitmap.height, -box.w/2, -box.h/2, box.w, box.h);
+    }
+
+    ctx.restore();
+
+    // overlays: store name, tagline, CTA
+    if (showText) {
+      // store name
+      ctx.fillStyle = (bgMode === 'luxury') ? '#f8f8f8' : '#111827';
+      ctx.font = `${Math.round(canvas.width*0.055)}px "Segoe UI", Roboto, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(storeInput.value || 'Your Store Name', canvas.width/2, canvas.height*0.82);
+
+      // tagline
+      ctx.fillStyle = (bgMode === 'luxury') ? '#f0f5ff' : '#6b7280';
+      ctx.font = `${Math.round(canvas.width*0.032)}px sans-serif`;
+      ctx.fillText(taglineInput.value || 'Shine Bright, Celebrate Love', canvas.width/2, canvas.height*0.86);
+
+      // CTA box
+      const cta = descInput.value || 'Visit store • Exclusive collection';
+      ctx.fillStyle = themeColor;
+      const ctaW = Math.min(canvas.width*0.6, ctx.measureText(cta).width + 48);
+      const ctaH = Math.round(canvas.height*0.06);
+      const ctaX = (canvas.width - ctaW)/2;
+      const ctaY = canvas.height*0.9 - ctaH/2;
+      ctx.beginPath();
+      ctx.fillStyle = themeColor;
+      ctx.roundRect ? ctx.roundRect(ctaX, ctaY, ctaW, ctaH, 12) : (function(){ ctx.fillRect(ctaX, ctaY, ctaW, ctaH); })();
+      ctx.fill();
+
+      ctx.fillStyle = '#021018';
+      ctx.font = `${Math.round(canvas.width*0.028)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(cta, canvas.width/2, ctaY + ctaH*0.62);
+    }
+
+    // guidelines
+    if (showGuides) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.rect(10,10, canvas.width-20, canvas.height-20);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Simple background removal:
+  // - Samples corner pixels to detect background color
+  // - Marks pixels close to that color as transparent
+  // Returns a mask canvas (same natural size as original image)
+  function generateBgMask(image, tolerance=28) {
+    // create canvas equal to image natural size
+    const w = image.naturalWidth || image.width;
+    const h = image.naturalHeight || image.height;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const cctx = c.getContext('2d');
+    cctx.drawImage(image, 0, 0, w, h);
+    const data = cctx.getImageData(0,0,w,h);
+    // sample several corners and a few center-edge points to estimate bg color
+    const samples = [];
+    function sample(x,y){ const i = ((Math.floor(y)*w) + Math.floor(x))*4; return [data.data[i], data.data[i+1], data.data[i+2]]; }
+    const pad = Math.max(6, Math.floor(Math.min(w,h)*0.02));
+    // corners and center-top/bottom
+    samples.push(sample(pad,pad));
+    samples.push(sample(w-pad,pad));
+    samples.push(sample(pad,h-pad));
+    samples.push(sample(w-pad,h-pad));
+    samples.push(sample(w/2,pad));
+    samples.push(sample(w/2,h-pad));
+    // average sample
+    const avg = samples.reduce((acc, s) => { acc[0]+=s[0]; acc[1]+=s[1]; acc[2]+=s[2]; return acc; }, [0,0,0]).map(v=>Math.round(v/samples.length));
+
+    // create mask by comparing color distance
+    const mask = cctx.createImageData(w,h);
+    for (let y=0; y<h; y++){
+      for (let x=0; x<w; x++){
+        const idx = (y*w + x)*4;
+        const r = data.data[idx], g = data.data[idx+1], b = data.data[idx+2];
+        const d = Math.sqrt((r-avg[0])**2 + (g-avg[1])**2 + (b-avg[2])**2);
+        // if color distance large -> foreground, else background
+        const alpha = d > tolerance ? 255 : 0;
+        mask.data[idx] = 255; mask.data[idx+1] = 255; mask.data[idx+2] = 255; mask.data[idx+3] = alpha;
+      }
+    }
+    cctx.putImageData(mask, 0, 0);
+    return c;
+  }
+
+  // Helper to generate basic taglines/hashtags (no web calls)
+  function autoGenerateText() {
+    const store = storeInput.value || 'Your Store';
+    const styles = {
+      plain: {
+        taglines: ['Timeless pieces. Everyday elegance.', 'Minimal. Classic. You.'],
+        hashtags: ['#Jewellery', '#DailyElegance', '#Gold']
+      },
+      bridal: {
+        taglines: ['For the Bride who sparkles.', 'Wear the moment.'],
+        hashtags: ['#BridalJewellery', '#WeddingJewels', '#Bridal']
+      },
+      festive: {
+        taglines: ['Celebrate the festival of lights in gold.', 'Glamour for every celebration.'],
+        hashtags: ['#DiwaliSpecial', '#FestiveJewellery', '#ShineBright']
+      },
+      luxury: {
+        taglines: ['Luxury that whispers, not shouts.', 'Handcrafted brilliance.'],
+        hashtags: ['#LuxuryJewellery', '#PremiumGold', '#Craftsmanship']
+      }
+    };
+    const chosen = styles[bgMode] || styles.plain;
+    taglineInput.value = chosen.taglines[Math.floor(Math.random()*chosen.taglines.length)];
+    const caps = chosen.hashtags.concat([`#${store.replace(/\s+/g,'')}`, '#NewCollection']);
+    hashInput.value = caps.join(' ');
+    descInput.value = 'Limited period offer • Visit or call to reserve your favorite piece.';
+  }
+
+  // Export final canvas image as data URL and enable download
+  function enableDownload() {
+    try {
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        downloadLink.style.display = 'inline-block';
+        downloadLink.download = `adgleam-${Date.now()}.png`;
+      }, 'image/png');
+    } catch (e) {
+      alert('Export failed: ' + e.message);
+    }
+  }
+
+  // Event wiring
+
+  fileInput.addEventListener('change', async (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    try {
+      img = await loadImageFromFile(f);
+      // create a bitmap-like object (use image directly; we rely on naturalWidth)
+      imgBitmap = img;
+      // reset mask
+      maskCanvas = null;
+      scale = 1; rotation = 0;
+      renderAd();
+    } catch (e) {
+      alert('Image load failed: ' + e.message);
+    }
+  });
+
+  btnAutoRemove.addEventListener('click', () => {
+    if (!img) { alert('Upload an image first'); return; }
+    // user tolerance could be parameterized; here we pick 28 for balanced behavior
+    maskCanvas = generateBgMask(img, 28);
+    // preview update
+    renderAd();
+  });
+
+  btnResetBg.addEventListener('click', () => {
+    maskCanvas = null;
+    renderAd();
+  });
+
+  styleSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    bgMode = val;
+    // pick default theme color for some modes
+    if (val === 'bridal') themeColor = '#f59e0b';
+    else if (val === 'festive') themeColor = '#ef4444';
+    else if (val === 'luxury') themeColor = '#a78bfa';
+    else themeColor = '#06b6d4';
+    autoGenerateText();
+    renderAd();
+  });
+
+  sizeSelect.addEventListener('change', (e) => {
+    const v = e.target.value;
+    adSize = AD_SIZES[v];
+    sizeLabel.textContent = '• ' + adSize.w + '×' + adSize.h;
+    renderAd();
+  });
+
+  colorSwatches.forEach(s => {
+    s.addEventListener('click', () => {
+      themeColor = s.dataset.color || '#f59e0b';
+      renderAd();
+    });
+  });
+
+  btnGenerate.addEventListener('click', () => {
+    if (!imgBitmap) { alert('Upload an image to generate ad'); return; }
+    // ensure text exists; auto-generate if empty
+    if (!taglineInput.value || !hashInput.value) autoGenerateText();
+    // render at chosen ad size and enable download
+    adSize = AD_SIZES[sizeSelect.value];
+    renderAd();
+    enableDownload();
+    // also copy a suggested caption to clipboard (hashtags + tagline)
+    const caption = (taglineInput.value ? taglineInput.value + '\n\n' : '') + (hashInput.value || '');
+    try { navigator.clipboard.writeText(caption); } catch (e) {}
+    alert('Ad generated. Download ready and caption copied to clipboard.');
+  });
+
+  // zoom rotate controls
+  btnZoomIn.addEventListener('click', () => { scale *= 1.08; renderAd(); });
+  btnZoomOut.addEventListener('click', () => { scale /= 1.08; renderAd(); });
+  btnRotate.addEventListener('click', () => { rotation = (rotation + 12) % 360; renderAd(); });
+
+  btnToggleGuides.addEventListener('click', () => { showGuides = !showGuides; btnToggleGuides.textContent = showGuides ? 'Hide Guides' : 'Show Guides'; renderAd(); });
+  btnTextToggle.addEventListener('click', () => { showText = !showText; btnTextToggle.textContent = showText ? 'Hide Text' : 'Show Text'; renderAd(); });
+
+  // Copy current canvas image to clipboard (for quick sharing)
+  btnSharePreview.addEventListener('click', async () => {
+    try {
+      if (!navigator.clipboard || !canvas.toBlob) throw new Error('Clipboard or toBlob not supported');
+      canvas.toBlob(async (b) => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ [b.type]: b })]);
+          alert('Image copied to clipboard');
+        } catch (e) { alert('Clipboard copy failed: ' + e.message); }
+      }, 'image/png');
+    } catch (e) {
+      alert('Copy failed: ' + e.message);
+    }
+  });
+
+  // rounded rect polyfill for older browsers
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+      if (typeof r === 'undefined') r = 6;
+      this.beginPath();
+      this.moveTo(x+r, y);
+      this.arcTo(x+w, y, x+w, y+h, r);
+      this.arcTo(x+w, y+h, x, y+h, r);
+      this.arcTo(x, y+h, x, y, r);
+      this.arcTo(x, y, x+w, y, r);
+      this.closePath();
+      return this;
+    };
+  }
+
+  // initial render
+  autoGenerateText();
+  renderAd();
+})();
+</script>
+</body>
+</html>
